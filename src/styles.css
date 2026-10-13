@@ -1,3 +1,11 @@
+.input-area,
+.imcomplete-area,
+.complete-area {
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  max-width: 416px;
+}
+
 body {
   font-family: sans-serif;
 }
@@ -6,7 +14,7 @@ input {
   border-radius: 16px;
   border: none;
   padding: 6px 16px;
-  outline: none;
+  font-size: 16px;
 }
 
 button {
@@ -17,11 +25,22 @@ button {
 
 .input-area {
   background-color: #c1ffff;
-  width: 400px;
-  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
   padding: 8px;
   margin: 8px;
   border-radius: 8px;
+}
+
+.input-area input {
+  flex: 1;
+  min-width: 0;
+}
+
+.input-area button {
+  flex-shrink: 0;
 }
 
 button:hover {
@@ -30,13 +49,23 @@ button:hover {
   cursor: pointer;
 }
 
-li {
-  margin-right: 8px;
+input:focus-visible,
+button:focus-visible {
+  outline: 3px solid #2457a7;
+  outline-offset: 2px;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+#status-message {
+  margin: 8px 16px;
 }
 
 .imcomplete-area {
   background-color: #c6ffe2;
-  width: 400px;
   min-height: 200px;
   padding: 8px;
   margin: 8px;
@@ -45,7 +74,6 @@ li {
 
 .complete-area {
   background-color: #ffffe0;
-  width: 400px;
   min-height: 200px;
   padding: 8px;
   margin: 8px;
@@ -61,6 +89,20 @@ li {
 
 .list-row {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
   padding-bottom: 4px;
+}
+
+.todo-text {
+  flex: 1 1 120px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.todo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }

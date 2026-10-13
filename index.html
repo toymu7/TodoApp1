@@ -1,39 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
   <head>
     <title>TodoAPP</title>
     <link rel="stylesheet" href="src/styles.css" />
 
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
 
   <body>
-    <div class="input-area">
+    <form id="todo-form" class="input-area">
+      <label for="add-text">Todo</label>
       <input id="add-text" placeholder="TODOを入力" />
-      <button id="add-button">追加</button>
-    </div>
+      <button id="add-button" type="submit">追加</button>
+    </form>
+    <p id="status-message" role="status"></p>
 
     <div class="imcomplete-area">
       <p class="title">未完了のTodo</p>
-      <ul id="imcomplete-list">
-        <!-- <div class="list-row">
-          <li>Todoです</li>
-          <button>完了</button>
-          <button>削除</button>
-        </div> -->
-      </ul>
+      <ul id="imcomplete-list"></ul>
     </div>
 
     <div class="complete-area">
       <p class="title">完了したTodo</p>
-      <ul id="complete-list">
-        <!-- <div class="list-row">
-          <li>Todoした</li>
-          <button>戻す</button>
-        </div> -->
-      </ul>
+      <ul id="complete-list"></ul>
     </div>
 
-    <script src="src/index.js"></script>
+    <script type="module" src="src/index.js"></script>
   </body>
 </html>
