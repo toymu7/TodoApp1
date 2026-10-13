@@ -97,6 +97,26 @@ test("completion, return, and deletion preserve remaining Todos and save state",
   assert.equal(app.document.activeElement, app.input);
 });
 
+test("completed Todos can be deleted directly and stay deleted after restart", () => {
+  const app = boot();
+  app.add("pending");
+  app.add("done");
+  app.add("keep completed");
+  buttons(app.incomplete.children[1])[0].dispatch("click");
+  buttons(app.incomplete.children[1])[0].dispatch("click");
+  const deleteButton = buttons(app.complete.children[0])[1];
+  assert.equal(deleteButton.textContent, "削除");
+  deleteButton.dispatch("click");
+  assert.deepEqual(rowText(app.incomplete), ["pending"]);
+  assert.deepEqual(rowText(app.complete), ["keep completed"]);
+  assert.equal(app.document.activeElement, app.input);
+  assert.deepEqual(JSON.parse(app.storage.get(storageKey)).map((todo) => todo.text),
+    ["pending", "keep completed"]);
+  const restored = boot({ storage: app.storage });
+  assert.deepEqual(rowText(restored.incomplete), ["pending"]);
+  assert.deepEqual(rowText(restored.complete), ["keep completed"]);
+});
+
 test("restart restores text and completion from persisted storage", () => {
   const original = boot();
   original.add("pending");

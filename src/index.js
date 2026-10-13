@@ -66,14 +66,12 @@ const renderTodos = () => {
       targetList.children[index].querySelector("button").focus();
     });
     actions.appendChild(toggleButton);
-    if (!todo.completed) {
-      actions.appendChild(createButton("削除", () => {
-        todos = todos.filter((item) => item.id !== todo.id);
-        saveTodos();
-        renderTodos();
-        todoInput.focus();
-      }));
-    }
+    actions.appendChild(createButton("削除", () => {
+      todos = todos.filter((item) => item.id !== todo.id);
+      saveTodos();
+      renderTodos();
+      todoInput.focus();
+    }));
     row.appendChild(text);
     row.appendChild(actions);
     (todo.completed ? completeList : incompleteList).appendChild(row);
