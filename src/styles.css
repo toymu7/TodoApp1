@@ -4,6 +4,7 @@
   box-sizing: border-box;
   width: calc(100% - 16px);
   max-width: 416px;
+  margin: 8px auto;
 }
 
 body {
@@ -30,7 +31,6 @@ button {
   gap: 8px;
   min-height: 46px;
   padding: 8px;
-  margin: 8px;
   border-radius: 8px;
 }
 
@@ -61,14 +61,15 @@ ul {
 }
 
 #status-message {
-  margin: 8px 16px;
+  width: calc(100% - 16px);
+  max-width: 416px;
+  margin: 8px auto;
 }
 
 .imcomplete-area {
   background-color: #c6ffe2;
   min-height: 200px;
   padding: 8px;
-  margin: 8px;
   border-radius: 8px;
 }
 
@@ -76,7 +77,6 @@ ul {
   background-color: #ffffe0;
   min-height: 200px;
   padding: 8px;
-  margin: 8px;
   border-radius: 8px;
 }
 
@@ -88,27 +88,33 @@ ul {
 }
 
 .list-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
   padding-bottom: 4px;
 }
 
 .todo-text {
-  flex: 1 1 120px;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .todo-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 64px);
+  gap: 4px;
+}
+
+.todo-actions button {
+  padding: 6px 0;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .todo-editor {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  padding: 6px 4px;
 }

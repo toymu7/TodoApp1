@@ -49,7 +49,7 @@ const createButton = (label, onClick) => {
 /** 編集を確定する。空白だけの内容やキャンセル時は元の本文を維持する。 */
 const finishEditing = (cancel = false) => {
   if (!activeEdit) return;
-  const { todo, editor, text, editButton, cancelButton } = activeEdit;
+  const { todo, editor, text, editButton, deleteButton } = activeEdit;
   activeEdit = null;
   const value = editor.value.trim();
   if (!cancel && value && value !== todo.text) {
@@ -59,11 +59,11 @@ const finishEditing = (cancel = false) => {
   text.replaceChildren();
   text.textContent = todo.text;
   editButton.textContent = "編集";
-  cancelButton.hidden = true;
+  deleteButton.textContent = "削除";
 };
 
 /** 本文を編集欄に切り替え、すぐに入力できるようにする。 */
-const startEditing = (todo, text, actions, editButton, cancelButton) => {
+const startEditing = (todo, text, actions, editButton, deleteButton) => {
   finishEditing();
   const editor = document.createElement("input");
   editor.type = "text";
@@ -89,8 +89,8 @@ const startEditing = (todo, text, actions, editButton, cancelButton) => {
   text.textContent = "";
   text.replaceChildren(editor);
   editButton.textContent = "保存";
-  cancelButton.hidden = false;
-  activeEdit = { todo, editor, text, actions, editButton, cancelButton };
+  deleteButton.textContent = "キャンセル";
+  activeEdit = { todo, editor, text, actions, editButton, deleteButton };
   editor.focus();
   editor.select();
 };
@@ -129,28 +129,28 @@ const renderTodos = () => {
       targetList.children[index].querySelector("button").focus();
     });
     actions.appendChild(toggleButton);
-    actions.appendChild(createButton("削除", () => {
-      finishEditing(activeEdit && activeEdit.todo === todo);
+    const deleteButton = createButton("削除", () => {
+      if (activeEdit && activeEdit.todo === todo) {
+        finishEditing(true);
+        editButton.focus();
+        return;
+      }
+      finishEditing();
       todos = todos.filter((item) => item.id !== todo.id);
       saveTodos();
       renderTodos();
       todoInput.focus();
-    }));
+    });
+    actions.appendChild(deleteButton);
     const editButton = createButton("編集", () => {
       if (activeEdit && activeEdit.todo === todo) {
         finishEditing();
         editButton.focus();
       } else {
-        startEditing(todo, text, actions, editButton, cancelButton);
+        startEditing(todo, text, actions, editButton, deleteButton);
       }
     });
-    const cancelButton = createButton("キャンセル", () => {
-      finishEditing(true);
-      editButton.focus();
-    });
-    cancelButton.hidden = true;
     actions.appendChild(editButton);
-    actions.appendChild(cancelButton);
     row.appendChild(text);
     row.appendChild(actions);
     (todo.completed ? completeList : incompleteList).appendChild(row);
