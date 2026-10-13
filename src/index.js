@@ -49,7 +49,7 @@ const createButton = (label, onClick) => {
 /** 編集を確定する。空白だけの内容やキャンセル時は元の本文を維持する。 */
 const finishEditing = (cancel = false) => {
   if (!activeEdit) return;
-  const { todo, editor, text } = activeEdit;
+  const { todo, editor, text, editButton, cancelButton } = activeEdit;
   activeEdit = null;
   const value = editor.value.trim();
   if (!cancel && value && value !== todo.text) {
@@ -58,10 +58,12 @@ const finishEditing = (cancel = false) => {
   }
   text.replaceChildren();
   text.textContent = todo.text;
+  editButton.textContent = "編集";
+  cancelButton.hidden = true;
 };
 
 /** 本文を編集欄に切り替え、すぐに入力できるようにする。 */
-const startEditing = (todo, text, editButton) => {
+const startEditing = (todo, text, actions, editButton, cancelButton) => {
   finishEditing();
   const editor = document.createElement("input");
   editor.type = "text";
@@ -71,8 +73,10 @@ const startEditing = (todo, text, editButton) => {
   let composing = false;
   editor.addEventListener("compositionstart", () => { composing = true; });
   editor.addEventListener("compositionend", () => { composing = false; });
-  editor.addEventListener("blur", () => {
-    if (activeEdit && activeEdit.editor === editor) finishEditing();
+  editor.addEventListener("blur", (event) => {
+    if (activeEdit && activeEdit.editor === editor && !actions.contains(event.relatedTarget)) {
+      finishEditing();
+    }
   });
   editor.addEventListener("keydown", (event) => {
     if (composing || event.isComposing || event.keyCode === 229) return;
@@ -84,14 +88,22 @@ const startEditing = (todo, text, editButton) => {
   });
   text.textContent = "";
   text.replaceChildren(editor);
-  activeEdit = { todo, editor, text };
+  editButton.textContent = "保存";
+  cancelButton.hidden = false;
+  activeEdit = { todo, editor, text, actions, editButton, cancelButton };
   editor.focus();
   editor.select();
 };
 
 // フォーカスを受け取らない余白をクリックした場合も編集を確定する。
 document.addEventListener("pointerdown", (event) => {
-  if (activeEdit && event.target !== activeEdit.editor) finishEditing();
+  if (!activeEdit || event.target === activeEdit.editor) return;
+  if (activeEdit.actions.contains(event.target)) {
+    // blurによる先行保存を防ぎ、押されたボタンに確定・取消の判断を任せる。
+    event.preventDefault();
+    return;
+  }
+  finishEditing();
 });
 
 /** Todoの状態から一覧を描画する。 */
@@ -108,6 +120,7 @@ const renderTodos = () => {
     const actions = document.createElement("div");
     actions.className = "todo-actions";
     const toggleButton = createButton(todo.completed ? "戻す" : "完了", () => {
+      finishEditing();
       todo.completed = !todo.completed;
       saveTodos();
       renderTodos();
@@ -117,13 +130,27 @@ const renderTodos = () => {
     });
     actions.appendChild(toggleButton);
     actions.appendChild(createButton("削除", () => {
+      finishEditing(activeEdit && activeEdit.todo === todo);
       todos = todos.filter((item) => item.id !== todo.id);
       saveTodos();
       renderTodos();
       todoInput.focus();
     }));
-    const editButton = createButton("編集", () => startEditing(todo, text, editButton));
+    const editButton = createButton("編集", () => {
+      if (activeEdit && activeEdit.todo === todo) {
+        finishEditing();
+        editButton.focus();
+      } else {
+        startEditing(todo, text, actions, editButton, cancelButton);
+      }
+    });
+    const cancelButton = createButton("キャンセル", () => {
+      finishEditing(true);
+      editButton.focus();
+    });
+    cancelButton.hidden = true;
     actions.appendChild(editButton);
+    actions.appendChild(cancelButton);
     row.appendChild(text);
     row.appendChild(actions);
     (todo.completed ? completeList : incompleteList).appendChild(row);

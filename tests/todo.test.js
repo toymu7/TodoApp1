@@ -10,12 +10,16 @@ const storageKey = "todoapp1.todos";
 // DOMの必要な操作だけを再現する。ブラウザ固有のレイアウトは別途確認する。
 function boot({ stored, readError = false, writeError = false, storage } = {}) {
   const values = storage || new Map(stored === undefined ? [] : [[storageKey, stored]]);
+  const writes = [];
   const document = {
     activeElement: null,
     listeners: {},
     addEventListener(type, callback) { (this.listeners[type] ||= []).push(callback); },
     dispatch(type, properties = {}) {
-      for (const callback of this.listeners[type] || []) callback(properties);
+      const event = { ...properties, defaultPrevented: false,
+        preventDefault() { this.defaultPrevented = true; } };
+      for (const callback of this.listeners[type] || []) callback(event);
+      return event;
     },
     createElement(tag) { return new Element(tag); },
     getElementById(id) { return elements[id]; }
@@ -48,6 +52,7 @@ function boot({ stored, readError = false, writeError = false, storage } = {}) {
     focus() { document.activeElement = this; }
     select() { this.selected = true; }
     setAttribute(name, value) { this[name] = value; }
+    contains(target) { return this === target || this.children.some((child) => child.contains(target)); }
   }
   const elements = Object.fromEntries([
     ["add-text", "input"], ["todo-form", "form"], ["imcomplete-list", "ul"],
@@ -55,12 +60,16 @@ function boot({ stored, readError = false, writeError = false, storage } = {}) {
   ].map(([id, tag]) => [id, new Element(tag)]));
   vm.runInNewContext(source, { document, localStorage: {
     getItem(key) { if (readError) throw new Error("denied"); return values.get(key) ?? null; },
-    setItem(key, value) { if (writeError) throw new Error("quota"); values.set(key, value); }
+    setItem(key, value) {
+      if (writeError) throw new Error("quota");
+      writes.push(JSON.parse(value));
+      values.set(key, value);
+    }
   } });
   return {
     input: elements["add-text"], form: elements["todo-form"],
     incomplete: elements["imcomplete-list"], complete: elements["complete-list"],
-    status: elements["status-message"], document, storage: values,
+    status: elements["status-message"], document, storage: values, writes,
     add(text) { this.input.value = text; return this.form.dispatch("submit"); }
   };
 }
@@ -278,4 +287,79 @@ test("editing then clicking complete or delete does not block the action", () =>
   deleteButton.dispatch("click");
   assert.deepEqual(rowText(app.complete), []);
   assert.deepEqual(JSON.parse(app.storage.get(storageKey)), []);
+});
+
+for (const completed of [false, true]) {
+  test(`save and cancel controls reflect editing state (completed=${completed})`, () => {
+    const app = boot();
+    app.add("original");
+    if (completed) buttons(app.incomplete.children[0])[0].dispatch("click");
+    const row = (completed ? app.complete : app.incomplete).children[0];
+    const saveButton = buttons(row)[2];
+    const cancelButton = buttons(row)[3];
+    assert.equal(cancelButton.hidden, true);
+    saveButton.dispatch("click");
+    assert.equal(saveButton.textContent, "保存");
+    assert.equal(cancelButton.hidden, false);
+    let editor = row.querySelector("input");
+    editor.value = "saved explicitly";
+    const pointer = app.document.dispatch("pointerdown", { target: saveButton });
+    assert.equal(pointer.defaultPrevented, true);
+    editor.dispatch("blur", { relatedTarget: saveButton });
+    assert.equal(row.querySelector("input"), editor);
+    saveButton.dispatch("click");
+    assert.equal(row.children[0].textContent, "saved explicitly");
+    assert.equal(saveButton.textContent, "編集");
+    assert.equal(cancelButton.hidden, true);
+    saveButton.dispatch("click");
+    editor = row.querySelector("input");
+    editor.value = "discard this";
+    const writeCount = app.writes.length;
+    app.document.dispatch("pointerdown", { target: cancelButton });
+    editor.dispatch("blur", { relatedTarget: cancelButton });
+    cancelButton.dispatch("click");
+    assert.equal(row.children[0].textContent, "saved explicitly");
+    assert.equal(app.writes.length, writeCount);
+    assert.equal(app.document.activeElement, saveButton);
+    assert.equal(saveButton.textContent, "編集");
+    assert.equal(cancelButton.hidden, true);
+    const restored = boot({ storage: app.storage });
+    assert.deepEqual(rowText(completed ? restored.complete : restored.incomplete), ["saved explicitly"]);
+  });
+}
+
+test("deleting an edited Todo never saves the draft before deletion", () => {
+  const app = boot();
+  app.add("original");
+  app.add("keep");
+  const row = app.incomplete.children[0];
+  buttons(row)[2].dispatch("click");
+  const editor = row.querySelector("input");
+  editor.value = "discarded draft";
+  const deleteButton = buttons(row)[1];
+  const writeCount = app.writes.length;
+  app.document.dispatch("pointerdown", { target: deleteButton });
+  editor.dispatch("blur", { relatedTarget: deleteButton });
+  deleteButton.dispatch("click");
+  assert.equal(app.writes.length, writeCount + 1);
+  assert.ok(app.writes.every((items) => items.every((todo) => todo.text !== "discarded draft")));
+  assert.deepEqual(rowText(app.incomplete), ["keep"]);
+});
+
+test("keyboard completion and return commit the draft before changing state", () => {
+  const app = boot();
+  app.add("original");
+  for (const list of [app.incomplete, app.complete]) {
+    const row = list.children[0];
+    buttons(row)[2].dispatch("click");
+    const editor = row.querySelector("input");
+    editor.value = list === app.incomplete ? "completed edit" : "returned edit";
+    const toggle = buttons(row)[0];
+    editor.dispatch("blur", { relatedTarget: toggle });
+    toggle.dispatch("click");
+    const saved = JSON.parse(app.storage.get(storageKey))[0];
+    assert.equal(saved.text, editor.value);
+    assert.equal(saved.completed, list === app.incomplete);
+  }
+  assert.deepEqual(rowText(app.incomplete), ["returned edit"]);
 });
