@@ -5,6 +5,7 @@ const completeList = document.getElementById("complete-list");
 const statusMessage = document.getElementById("status-message");
 const storageKey = "todoapp1.todos";
 let isComposing = false;
+let activeEdit = null;
 
 /** 保存済みデータを検証し、利用できるTodoだけを復元する。 */
 const loadTodos = () => {
@@ -45,8 +46,57 @@ const createButton = (label, onClick) => {
   return button;
 };
 
+/** 編集を確定する。空白だけの内容やキャンセル時は元の本文を維持する。 */
+const finishEditing = (cancel = false) => {
+  if (!activeEdit) return;
+  const { todo, editor, text } = activeEdit;
+  activeEdit = null;
+  const value = editor.value.trim();
+  if (!cancel && value && value !== todo.text) {
+    todo.text = value;
+    saveTodos();
+  }
+  text.replaceChildren();
+  text.textContent = todo.text;
+};
+
+/** 本文を編集欄に切り替え、すぐに入力できるようにする。 */
+const startEditing = (todo, text, editButton) => {
+  finishEditing();
+  const editor = document.createElement("input");
+  editor.type = "text";
+  editor.className = "todo-editor";
+  editor.value = todo.text;
+  editor.setAttribute("aria-label", "Todoの内容を編集");
+  let composing = false;
+  editor.addEventListener("compositionstart", () => { composing = true; });
+  editor.addEventListener("compositionend", () => { composing = false; });
+  editor.addEventListener("blur", () => {
+    if (activeEdit && activeEdit.editor === editor) finishEditing();
+  });
+  editor.addEventListener("keydown", (event) => {
+    if (composing || event.isComposing || event.keyCode === 229) return;
+    if (event.key === "Enter" || event.key === "Escape") {
+      event.preventDefault();
+      finishEditing(event.key === "Escape");
+      editButton.focus();
+    }
+  });
+  text.textContent = "";
+  text.replaceChildren(editor);
+  activeEdit = { todo, editor, text };
+  editor.focus();
+  editor.select();
+};
+
+// フォーカスを受け取らない余白をクリックした場合も編集を確定する。
+document.addEventListener("pointerdown", (event) => {
+  if (activeEdit && event.target !== activeEdit.editor) finishEditing();
+});
+
 /** Todoの状態から一覧を描画する。 */
 const renderTodos = () => {
+  finishEditing();
   incompleteList.replaceChildren();
   completeList.replaceChildren();
   todos.forEach((todo) => {
@@ -72,6 +122,8 @@ const renderTodos = () => {
       renderTodos();
       todoInput.focus();
     }));
+    const editButton = createButton("編集", () => startEditing(todo, text, editButton));
+    actions.appendChild(editButton);
     row.appendChild(text);
     row.appendChild(actions);
     (todo.completed ? completeList : incompleteList).appendChild(row);

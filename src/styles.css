@@ -106,3 +106,9 @@ ul {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.todo-editor {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
