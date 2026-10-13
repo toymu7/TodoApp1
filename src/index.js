@@ -49,7 +49,7 @@ const createButton = (label, onClick) => {
 /** 編集を確定する。空白だけの内容やキャンセル時は元の本文を維持する。 */
 const finishEditing = (cancel = false) => {
   if (!activeEdit) return;
-  const { todo, editor, text, editButton, deleteButton } = activeEdit;
+  const { todo, editor, text, editButton } = activeEdit;
   activeEdit = null;
   const value = editor.value.trim();
   if (!cancel && value && value !== todo.text) {
@@ -59,11 +59,10 @@ const finishEditing = (cancel = false) => {
   text.replaceChildren();
   text.textContent = todo.text;
   editButton.textContent = "編集";
-  deleteButton.textContent = "削除";
 };
 
 /** 本文を編集欄に切り替え、すぐに入力できるようにする。 */
-const startEditing = (todo, text, actions, editButton, deleteButton) => {
+const startEditing = (todo, text, actions, editButton) => {
   finishEditing();
   const editor = document.createElement("input");
   editor.type = "text";
@@ -89,8 +88,7 @@ const startEditing = (todo, text, actions, editButton, deleteButton) => {
   text.textContent = "";
   text.replaceChildren(editor);
   editButton.textContent = "保存";
-  deleteButton.textContent = "キャンセル";
-  activeEdit = { todo, editor, text, actions, editButton, deleteButton };
+  activeEdit = { todo, editor, text, actions, editButton };
   editor.focus();
   editor.select();
 };
@@ -130,12 +128,7 @@ const renderTodos = () => {
     });
     actions.appendChild(toggleButton);
     const deleteButton = createButton("削除", () => {
-      if (activeEdit && activeEdit.todo === todo) {
-        finishEditing(true);
-        editButton.focus();
-        return;
-      }
-      finishEditing();
+      finishEditing(activeEdit && activeEdit.todo === todo);
       todos = todos.filter((item) => item.id !== todo.id);
       saveTodos();
       renderTodos();
@@ -147,7 +140,7 @@ const renderTodos = () => {
         finishEditing();
         editButton.focus();
       } else {
-        startEditing(todo, text, actions, editButton, deleteButton);
+        startEditing(todo, text, actions, editButton);
       }
     });
     actions.appendChild(editButton);

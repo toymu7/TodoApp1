@@ -285,25 +285,23 @@ test("editing then clicking complete or delete does not block the action", () =>
   const deleteButton = buttons(row)[1];
   app.document.dispatch("pointerdown", { target: deleteButton });
   deleteButton.dispatch("click");
-  assert.deepEqual(rowText(app.complete), ["edited"]);
-  deleteButton.dispatch("click");
   assert.deepEqual(rowText(app.complete), []);
   assert.deepEqual(JSON.parse(app.storage.get(storageKey)), []);
 });
 
 for (const completed of [false, true]) {
-  test(`save and cancel controls reflect editing state (completed=${completed})`, () => {
+  test(`save and delete controls keep three buttons during editing (completed=${completed})`, () => {
     const app = boot();
     app.add("original");
     if (completed) buttons(app.incomplete.children[0])[0].dispatch("click");
     const row = (completed ? app.complete : app.incomplete).children[0];
     const saveButton = buttons(row)[2];
-    const cancelButton = buttons(row)[1];
-    assert.equal(cancelButton.textContent, "削除");
+    const deleteButton = buttons(row)[1];
+    assert.equal(deleteButton.textContent, "削除");
     assert.equal(buttons(row).length, 3);
     saveButton.dispatch("click");
     assert.equal(saveButton.textContent, "保存");
-    assert.equal(cancelButton.textContent, "キャンセル");
+    assert.equal(deleteButton.textContent, "削除");
     assert.equal(buttons(row).length, 3);
     let editor = row.querySelector("input");
     editor.value = "saved explicitly";
@@ -314,27 +312,25 @@ for (const completed of [false, true]) {
     saveButton.dispatch("click");
     assert.equal(row.children[0].textContent, "saved explicitly");
     assert.equal(saveButton.textContent, "編集");
-    assert.equal(cancelButton.textContent, "削除");
+    assert.equal(deleteButton.textContent, "削除");
     assert.equal(buttons(row).length, 3);
     saveButton.dispatch("click");
     editor = row.querySelector("input");
     editor.value = "discard this";
     const writeCount = app.writes.length;
-    app.document.dispatch("pointerdown", { target: cancelButton });
-    editor.dispatch("blur", { relatedTarget: cancelButton });
-    cancelButton.dispatch("click");
+    editor.dispatch("keydown", { key: "Escape" });
     assert.equal(row.children[0].textContent, "saved explicitly");
     assert.equal(app.writes.length, writeCount);
     assert.equal(app.document.activeElement, saveButton);
     assert.equal(saveButton.textContent, "編集");
-    assert.equal(cancelButton.textContent, "削除");
+    assert.equal(deleteButton.textContent, "削除");
     assert.equal(buttons(row).length, 3);
     const restored = boot({ storage: app.storage });
     assert.deepEqual(rowText(completed ? restored.complete : restored.incomplete), ["saved explicitly"]);
   });
 }
 
-test("cancel replaces delete during editing and discards the draft before deletion", () => {
+test("deleting during editing discards the draft without saving it first", () => {
   const app = boot();
   app.add("original");
   app.add("keep");
@@ -346,9 +342,6 @@ test("cancel replaces delete during editing and discards the draft before deleti
   const writeCount = app.writes.length;
   app.document.dispatch("pointerdown", { target: deleteButton });
   editor.dispatch("blur", { relatedTarget: deleteButton });
-  deleteButton.dispatch("click");
-  assert.equal(app.writes.length, writeCount);
-  assert.deepEqual(rowText(app.incomplete), ["original", "keep"]);
   deleteButton.dispatch("click");
   assert.equal(app.writes.length, writeCount + 1);
   assert.ok(app.writes.every((items) => items.every((todo) => todo.text !== "discarded draft")));
