@@ -13,9 +13,10 @@
       <h1 class="app-title">Todo</h1>
       <form id="todo-form" class="input-area">
         <label for="add-text">Todo</label>
-        <input id="add-text" type="text" placeholder="Todoを入力" autocomplete="off" />
+        <textarea id="add-text" rows="1" placeholder="Todoを入力" autocomplete="off" aria-describedby="input-help"></textarea>
         <button id="add-button" type="submit">追加</button>
       </form>
+      <p id="input-help" class="input-help">Enterで追加・保存、Shift+Enterで改行、編集中はEscapeでキャンセル</p>
       <p id="status-message" role="status"></p>
 
       <section class="imcomplete-area" aria-labelledby="incomplete-title">

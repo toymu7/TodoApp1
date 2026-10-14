@@ -46,7 +46,8 @@ textarea {
   background: #fff;
 }
 
-input::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: #657970;
   opacity: 1;
 }
@@ -79,9 +80,22 @@ button {
   font-weight: 600;
 }
 
-.input-area input {
+.input-area textarea {
   flex: 1;
   min-width: 0;
+  display: block;
+  resize: none;
+  overflow-y: hidden;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.input-help {
+  width: calc(100% - 16px);
+  max-width: 416px;
+  margin: -4px auto 12px;
+  font-size: 12px;
+  color: #53675e;
 }
 
 .input-area button {

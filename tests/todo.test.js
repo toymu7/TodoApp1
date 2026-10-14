@@ -58,7 +58,7 @@ function boot({ stored, readError = false, writeError = false, storage } = {}) {
     contains(target) { return this === target || this.children.some((child) => child.contains(target)); }
   }
   const elements = Object.fromEntries([
-    ["add-text", "input"], ["todo-form", "form"], ["imcomplete-list", "ul"],
+    ["add-text", "textarea"], ["todo-form", "form"], ["imcomplete-list", "ul"],
     ["complete-list", "ul"], ["status-message", "p"]
   ].map(([id, tag]) => [id, new Element(tag)]));
   vm.runInNewContext(source, { document, window: document, localStorage: {
@@ -183,20 +183,20 @@ test("denied writes show feedback while all in-memory operations continue", () =
   assert.equal(app.storage.has(storageKey), false);
 });
 
-test("IME composition suppresses submission and Enter default action", () => {
+test("IME confirmation does not add Todos or block native composition", () => {
   const app = boot();
   app.input.value = "変換中";
   app.input.dispatch("compositionstart");
-  assert.equal(app.input.dispatch("keydown", { key: "Enter" }).defaultPrevented, true);
+  assert.equal(app.input.dispatch("keydown", { key: "Enter" }).defaultPrevented, false);
   app.form.dispatch("submit");
   assert.equal(app.incomplete.children.length, 0);
   assert.equal(app.input.value, "変換中");
   app.input.dispatch("compositionend");
   for (const properties of [{ isComposing: true }, { keyCode: 229 }]) {
-    assert.equal(app.input.dispatch("keydown", { key: "Enter", ...properties }).defaultPrevented, true);
+    assert.equal(app.input.dispatch("keydown", { key: "Enter", ...properties }).defaultPrevented, false);
   }
-  assert.equal(app.input.dispatch("keydown", { key: "Enter" }).defaultPrevented, false);
-  app.form.dispatch("submit");
+  assert.equal(app.incomplete.children.length, 0);
+  assert.equal(app.input.dispatch("keydown", { key: "Enter" }).defaultPrevented, true);
   assert.deepEqual(rowText(app.incomplete), ["変換中"]);
 });
 
@@ -388,6 +388,29 @@ test("multiline editor retains height and grows with input and viewport changes"
   assert.equal(editor.dispatch("keydown", { key: "Enter", shiftKey: true }).defaultPrevented, false);
   assert.equal(row.querySelector("textarea"), editor);
   buttons(row)[2].dispatch("click");
+  const restored = boot({ storage: app.storage });
+  assert.deepEqual(rowText(restored.incomplete), ["1行目\n2行目"]);
+});
+
+
+test("multiline creation supports Shift+Enter and Enter, saves newlines, and resets height", () => {
+  const app = boot();
+  app.input.value = "1行目";
+  assert.equal(app.input.dispatch("keydown", { key: "Enter", shiftKey: true }).defaultPrevented, false);
+  assert.equal(app.incomplete.children.length, 0);
+  app.input.value = "1行目\n2行目";
+  app.input.scrollHeight = 72;
+  app.input.dispatch("input");
+  assert.equal(app.input.style.height, "74px");
+  app.input.scrollHeight = 96;
+  app.document.dispatch("resize");
+  assert.equal(app.input.style.height, "98px");
+  app.input.scrollHeight = 24;
+  assert.equal(app.input.dispatch("keydown", { key: "Enter" }).defaultPrevented, true);
+  assert.deepEqual(rowText(app.incomplete), ["1行目\n2行目"]);
+  assert.equal(app.input.value, "");
+  assert.equal(app.input.style.height, "26px");
+  assert.equal(app.document.activeElement, app.input);
   const restored = boot({ storage: app.storage });
   assert.deepEqual(rowText(restored.incomplete), ["1行目\n2行目"]);
 });

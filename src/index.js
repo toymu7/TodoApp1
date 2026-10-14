@@ -105,6 +105,7 @@ const startEditing = (todo, text, actions, editButton) => {
 };
 
 window.addEventListener("resize", () => {
+  resizeEditor(todoInput);
   if (activeEdit) resizeEditor(activeEdit.editor);
 });
 
@@ -178,15 +179,18 @@ const addTodo = (event) => {
   saveTodos();
   renderTodos();
   todoInput.value = "";
+  resizeEditor(todoInput);
   todoInput.focus();
 };
 
 todoInput.addEventListener("compositionstart", () => { isComposing = true; });
 todoInput.addEventListener("compositionend", () => { isComposing = false; });
 todoInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && (event.isComposing || isComposing || event.keyCode === 229)) {
-    event.preventDefault();
-  }
+  if (event.key !== "Enter") return;
+  if (event.isComposing || isComposing || event.keyCode === 229) return;
+  if (!event.shiftKey) addTodo(event);
 });
+todoInput.addEventListener("input", () => resizeEditor(todoInput));
 todoForm.addEventListener("submit", addTodo);
+resizeEditor(todoInput);
 renderTodos();
