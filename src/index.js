@@ -61,14 +61,24 @@ const finishEditing = (cancel = false) => {
   editButton.textContent = "編集";
 };
 
-/** 本文を編集欄に切り替え、すぐに入力できるようにする。 */
+/** 折り返しや改行を含む本文全体が見える高さに編集欄を合わせる。 */
+const resizeEditor = (editor) => {
+  editor.style.height = "auto";
+  editor.style.height = `${editor.scrollHeight + 2}px`;
+};
+
+/** 本文を複数行の編集欄に切り替え、表示中の高さを維持する。 */
 const startEditing = (todo, text, actions, editButton) => {
   finishEditing();
-  const editor = document.createElement("input");
-  editor.type = "text";
+  const minimumHeight = text.getBoundingClientRect().height + 14;
+  const editor = document.createElement("textarea");
+  editor.rows = 1;
+  editor.style.minHeight = `${minimumHeight}px`;
   editor.className = "todo-editor";
   editor.value = todo.text;
   editor.setAttribute("aria-label", "Todoの内容を編集");
+  editor.setAttribute("aria-description", "Enterで保存、Shift+Enterで改行、Escapeでキャンセル");
+  editor.addEventListener("input", () => resizeEditor(editor));
   let composing = false;
   editor.addEventListener("compositionstart", () => { composing = true; });
   editor.addEventListener("compositionend", () => { composing = false; });
@@ -79,7 +89,7 @@ const startEditing = (todo, text, actions, editButton) => {
   });
   editor.addEventListener("keydown", (event) => {
     if (composing || event.isComposing || event.keyCode === 229) return;
-    if (event.key === "Enter" || event.key === "Escape") {
+    if ((event.key === "Enter" && !event.shiftKey) || event.key === "Escape") {
       event.preventDefault();
       finishEditing(event.key === "Escape");
       editButton.focus();
@@ -87,11 +97,16 @@ const startEditing = (todo, text, actions, editButton) => {
   });
   text.textContent = "";
   text.replaceChildren(editor);
+  resizeEditor(editor);
   editButton.textContent = "保存";
   activeEdit = { todo, editor, text, actions, editButton };
   editor.focus();
   editor.select();
 };
+
+window.addEventListener("resize", () => {
+  if (activeEdit) resizeEditor(activeEdit.editor);
+});
 
 // フォーカスを受け取らない余白をクリックした場合も編集を確定する。
 document.addEventListener("pointerdown", (event) => {

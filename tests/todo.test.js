@@ -31,6 +31,8 @@ function boot({ stored, readError = false, writeError = false, storage } = {}) {
       this.listeners = {};
       this.textContent = "";
       this.value = "";
+      this.style = {};
+      this.scrollHeight = 24;
     }
     appendChild(child) { this.children.push(child); return child; }
     replaceChildren(...children) { this.children = children; }
@@ -51,6 +53,7 @@ function boot({ stored, readError = false, writeError = false, storage } = {}) {
     }
     focus() { document.activeElement = this; }
     select() { this.selected = true; }
+    getBoundingClientRect() { return { height: 48 }; }
     setAttribute(name, value) { this[name] = value; }
     contains(target) { return this === target || this.children.some((child) => child.contains(target)); }
   }
@@ -58,7 +61,7 @@ function boot({ stored, readError = false, writeError = false, storage } = {}) {
     ["add-text", "input"], ["todo-form", "form"], ["imcomplete-list", "ul"],
     ["complete-list", "ul"], ["status-message", "p"]
   ].map(([id, tag]) => [id, new Element(tag)]));
-  vm.runInNewContext(source, { document, localStorage: {
+  vm.runInNewContext(source, { document, window: document, localStorage: {
     getItem(key) { if (readError) throw new Error("denied"); return values.get(key) ?? null; },
     setItem(key, value) {
       if (writeError) throw new Error("quota");
@@ -208,15 +211,15 @@ for (const completed of [false, true]) {
     const editButton = buttons(row)[2];
     assert.equal(editButton.textContent, "編集");
     editButton.dispatch("click");
-    const editor = row.querySelector("input");
+    const editor = row.querySelector("textarea");
     assert.equal(editor.value, "original");
     assert.equal(app.document.activeElement, editor);
     assert.equal(editor.selected, true);
     editor.value = "  edited　";
     app.document.dispatch("pointerdown", { target: editor });
-    assert.equal(row.querySelector("input"), editor);
+    assert.equal(row.querySelector("textarea"), editor);
     app.document.dispatch("pointerdown", { target: list });
-    assert.equal(row.querySelector("input"), null);
+    assert.equal(row.querySelector("textarea"), null);
     assert.equal(row.children[0].textContent, "edited");
     assert.equal(buttons(row)[0].textContent, completed ? "戻す" : "完了");
     const restored = boot({ storage: app.storage });
@@ -232,18 +235,18 @@ test("blank edits preserve original text, blur saves, and Escape cancels", () =>
   const row = app.incomplete.children[0];
   const editButton = buttons(row)[2];
   editButton.dispatch("click");
-  let editor = row.querySelector("input");
+  let editor = row.querySelector("textarea");
   editor.value = "　 ";
   editor.dispatch("blur");
   assert.equal(row.children[0].textContent, "original");
   editButton.dispatch("click");
-  editor = row.querySelector("input");
+  editor = row.querySelector("textarea");
   editor.value = "cancelled";
   assert.equal(editor.dispatch("keydown", { key: "Escape" }).defaultPrevented, true);
   assert.equal(row.children[0].textContent, "original");
   assert.equal(app.document.activeElement, editButton);
   editButton.dispatch("click");
-  editor = row.querySelector("input");
+  editor = row.querySelector("textarea");
   editor.value = "saved by blur";
   editor.dispatch("blur");
   assert.equal(row.children[0].textContent, "saved by blur");
@@ -255,15 +258,15 @@ test("editing Enter confirms only outside IME composition", () => {
   app.add("original");
   const row = app.incomplete.children[0];
   buttons(row)[2].dispatch("click");
-  const editor = row.querySelector("input");
+  const editor = row.querySelector("textarea");
   editor.value = "日本語";
   editor.dispatch("compositionstart");
   editor.dispatch("keydown", { key: "Enter" });
-  assert.equal(row.querySelector("input"), editor);
+  assert.equal(row.querySelector("textarea"), editor);
   editor.dispatch("compositionend");
   for (const properties of [{ isComposing: true }, { keyCode: 229 }]) {
     editor.dispatch("keydown", { key: "Enter", ...properties });
-    assert.equal(row.querySelector("input"), editor);
+    assert.equal(row.querySelector("textarea"), editor);
   }
   assert.equal(editor.dispatch("keydown", { key: "Enter" }).defaultPrevented, true);
   assert.equal(row.children[0].textContent, "日本語");
@@ -274,14 +277,14 @@ test("editing then clicking complete or delete does not block the action", () =>
   app.add("original");
   let row = app.incomplete.children[0];
   buttons(row)[2].dispatch("click");
-  row.querySelector("input").value = "edited";
+  row.querySelector("textarea").value = "edited";
   const completeButton = buttons(row)[0];
   app.document.dispatch("pointerdown", { target: completeButton });
   completeButton.dispatch("click");
   assert.deepEqual(rowText(app.complete), ["edited"]);
   row = app.complete.children[0];
   buttons(row)[2].dispatch("click");
-  row.querySelector("input").value = "before deleting";
+  row.querySelector("textarea").value = "before deleting";
   const deleteButton = buttons(row)[1];
   app.document.dispatch("pointerdown", { target: deleteButton });
   deleteButton.dispatch("click");
@@ -303,19 +306,19 @@ for (const completed of [false, true]) {
     assert.equal(saveButton.textContent, "保存");
     assert.equal(deleteButton.textContent, "削除");
     assert.equal(buttons(row).length, 3);
-    let editor = row.querySelector("input");
+    let editor = row.querySelector("textarea");
     editor.value = "saved explicitly";
     const pointer = app.document.dispatch("pointerdown", { target: saveButton });
     assert.equal(pointer.defaultPrevented, true);
     editor.dispatch("blur", { relatedTarget: saveButton });
-    assert.equal(row.querySelector("input"), editor);
+    assert.equal(row.querySelector("textarea"), editor);
     saveButton.dispatch("click");
     assert.equal(row.children[0].textContent, "saved explicitly");
     assert.equal(saveButton.textContent, "編集");
     assert.equal(deleteButton.textContent, "削除");
     assert.equal(buttons(row).length, 3);
     saveButton.dispatch("click");
-    editor = row.querySelector("input");
+    editor = row.querySelector("textarea");
     editor.value = "discard this";
     const writeCount = app.writes.length;
     editor.dispatch("keydown", { key: "Escape" });
@@ -336,7 +339,7 @@ test("deleting during editing discards the draft without saving it first", () =>
   app.add("keep");
   const row = app.incomplete.children[0];
   buttons(row)[2].dispatch("click");
-  const editor = row.querySelector("input");
+  const editor = row.querySelector("textarea");
   editor.value = "discarded draft";
   const deleteButton = buttons(row)[1];
   const writeCount = app.writes.length;
@@ -354,7 +357,7 @@ test("keyboard completion and return commit the draft before changing state", ()
   for (const list of [app.incomplete, app.complete]) {
     const row = list.children[0];
     buttons(row)[2].dispatch("click");
-    const editor = row.querySelector("input");
+    const editor = row.querySelector("textarea");
     editor.value = list === app.incomplete ? "completed edit" : "returned edit";
     const toggle = buttons(row)[0];
     editor.dispatch("blur", { relatedTarget: toggle });
@@ -364,4 +367,27 @@ test("keyboard completion and return commit the draft before changing state", ()
     assert.equal(saved.completed, list === app.incomplete);
   }
   assert.deepEqual(rowText(app.incomplete), ["returned edit"]);
+});
+
+
+test("multiline editor retains height and grows with input and viewport changes", () => {
+  const app = boot();
+  app.add("長い本文".repeat(30));
+  const row = app.incomplete.children[0];
+  buttons(row)[2].dispatch("click");
+  const editor = row.querySelector("textarea");
+  assert.equal(editor.style.minHeight, "62px");
+  editor.scrollHeight = 120;
+  editor.dispatch("input");
+  assert.equal(editor.style.height, "122px");
+  editor.scrollHeight = 168;
+  app.document.dispatch("resize");
+  assert.equal(editor.style.height, "170px");
+  assert.equal(buttons(row).length, 3);
+  editor.value = "1行目\n2行目";
+  assert.equal(editor.dispatch("keydown", { key: "Enter", shiftKey: true }).defaultPrevented, false);
+  assert.equal(row.querySelector("textarea"), editor);
+  buttons(row)[2].dispatch("click");
+  const restored = boot({ storage: app.storage });
+  assert.deepEqual(rowText(restored.incomplete), ["1行目\n2行目"]);
 });
