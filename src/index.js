@@ -5,6 +5,7 @@ const completeList = document.getElementById("complete-list");
 const statusMessage = document.getElementById("status-message");
 const storageKey = "todoapp1.todos";
 let isComposing = false;
+let activeEdit = null;
 
 /** 保存済みデータを検証し、利用できるTodoだけを復元する。 */
 const loadTodos = () => {
@@ -45,8 +46,83 @@ const createButton = (label, onClick) => {
   return button;
 };
 
+/** 編集を確定する。空白だけの内容やキャンセル時は元の本文を維持する。 */
+const finishEditing = (cancel = false) => {
+  if (!activeEdit) return;
+  const { todo, editor, text, editButton } = activeEdit;
+  activeEdit = null;
+  const value = editor.value.trim();
+  if (!cancel && value && value !== todo.text) {
+    todo.text = value;
+    saveTodos();
+  }
+  text.replaceChildren();
+  text.textContent = todo.text;
+  editButton.textContent = "編集";
+};
+
+/** 折り返しや改行を含む本文全体が見える高さに編集欄を合わせる。 */
+const resizeEditor = (editor) => {
+  editor.style.height = "auto";
+  editor.style.height = `${editor.scrollHeight + 2}px`;
+};
+
+/** 本文を複数行の編集欄に切り替え、表示中の高さを維持する。 */
+const startEditing = (todo, text, actions, editButton) => {
+  finishEditing();
+  const minimumHeight = text.getBoundingClientRect().height + 14;
+  const editor = document.createElement("textarea");
+  editor.rows = 1;
+  editor.style.minHeight = `${minimumHeight}px`;
+  editor.className = "todo-editor";
+  editor.value = todo.text;
+  editor.setAttribute("aria-label", "Todoの内容を編集");
+  editor.setAttribute("aria-description", "Enterで保存、Shift+Enterで改行、Escapeでキャンセル");
+  editor.addEventListener("input", () => resizeEditor(editor));
+  let composing = false;
+  editor.addEventListener("compositionstart", () => { composing = true; });
+  editor.addEventListener("compositionend", () => { composing = false; });
+  editor.addEventListener("blur", (event) => {
+    if (activeEdit && activeEdit.editor === editor && !actions.contains(event.relatedTarget)) {
+      finishEditing();
+    }
+  });
+  editor.addEventListener("keydown", (event) => {
+    if (composing || event.isComposing || event.keyCode === 229) return;
+    if ((event.key === "Enter" && !event.shiftKey) || event.key === "Escape") {
+      event.preventDefault();
+      finishEditing(event.key === "Escape");
+      editButton.focus();
+    }
+  });
+  text.textContent = "";
+  text.replaceChildren(editor);
+  resizeEditor(editor);
+  editButton.textContent = "保存";
+  activeEdit = { todo, editor, text, actions, editButton };
+  editor.focus();
+  editor.select();
+};
+
+window.addEventListener("resize", () => {
+  resizeEditor(todoInput);
+  if (activeEdit) resizeEditor(activeEdit.editor);
+});
+
+// フォーカスを受け取らない余白をクリックした場合も編集を確定する。
+document.addEventListener("pointerdown", (event) => {
+  if (!activeEdit || event.target === activeEdit.editor) return;
+  if (activeEdit.actions.contains(event.target)) {
+    // blurによる先行保存を防ぎ、押されたボタンに確定・取消の判断を任せる。
+    event.preventDefault();
+    return;
+  }
+  finishEditing();
+});
+
 /** Todoの状態から一覧を描画する。 */
 const renderTodos = () => {
+  finishEditing();
   incompleteList.replaceChildren();
   completeList.replaceChildren();
   todos.forEach((todo) => {
@@ -58,6 +134,7 @@ const renderTodos = () => {
     const actions = document.createElement("div");
     actions.className = "todo-actions";
     const toggleButton = createButton(todo.completed ? "戻す" : "完了", () => {
+      finishEditing();
       todo.completed = !todo.completed;
       saveTodos();
       renderTodos();
@@ -66,12 +143,23 @@ const renderTodos = () => {
       targetList.children[index].querySelector("button").focus();
     });
     actions.appendChild(toggleButton);
-    actions.appendChild(createButton("削除", () => {
+    const deleteButton = createButton("削除", () => {
+      finishEditing(activeEdit && activeEdit.todo === todo);
       todos = todos.filter((item) => item.id !== todo.id);
       saveTodos();
       renderTodos();
       todoInput.focus();
-    }));
+    });
+    actions.appendChild(deleteButton);
+    const editButton = createButton("編集", () => {
+      if (activeEdit && activeEdit.todo === todo) {
+        finishEditing();
+        editButton.focus();
+      } else {
+        startEditing(todo, text, actions, editButton);
+      }
+    });
+    actions.appendChild(editButton);
     row.appendChild(text);
     row.appendChild(actions);
     (todo.completed ? completeList : incompleteList).appendChild(row);
@@ -91,15 +179,18 @@ const addTodo = (event) => {
   saveTodos();
   renderTodos();
   todoInput.value = "";
+  resizeEditor(todoInput);
   todoInput.focus();
 };
 
 todoInput.addEventListener("compositionstart", () => { isComposing = true; });
 todoInput.addEventListener("compositionend", () => { isComposing = false; });
 todoInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && (event.isComposing || isComposing || event.keyCode === 229)) {
-    event.preventDefault();
-  }
+  if (event.key !== "Enter") return;
+  if (event.isComposing || isComposing || event.keyCode === 229) return;
+  if (!event.shiftKey) addTodo(event);
 });
+todoInput.addEventListener("input", () => resizeEditor(todoInput));
 todoForm.addEventListener("submit", addTodo);
+resizeEditor(todoInput);
 renderTodos();
